@@ -39,9 +39,14 @@ export const TemplateGallery = () => {
         dimensions: template.dimensions,
         timestamp: new Date().toISOString()
       });
-      toast.success(`Selected template: ${template.name}`);
+      
+      // Show a more informative success message
+      toast.success(`Template "${template.name}" selected! Your design will be processed with ${template.dimensions} dimensions. You'll be notified when it's ready.`);
+      
+      // You can add additional UI feedback here, such as showing a loading state
+      // or redirecting to a preview page once it's implemented
     } catch (error) {
-      toast.error("Failed to select template");
+      toast.error("Failed to process template. Please try again.");
       console.error("Error selecting template:", error);
     }
   };
