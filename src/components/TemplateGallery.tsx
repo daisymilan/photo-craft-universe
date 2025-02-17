@@ -1,5 +1,7 @@
 
 import { motion } from "framer-motion";
+import { triggerWebhook } from "@/utils/webhookService";
+import { toast } from "sonner";
 
 const templates = [
   {
@@ -29,6 +31,21 @@ const templates = [
 ];
 
 export const TemplateGallery = () => {
+  const handleTemplateSelect = async (template: typeof templates[0]) => {
+    try {
+      await triggerWebhook("template_selected", {
+        templateId: template.id,
+        templateName: template.name,
+        dimensions: template.dimensions,
+        timestamp: new Date().toISOString()
+      });
+      toast.success(`Selected template: ${template.name}`);
+    } catch (error) {
+      toast.error("Failed to select template");
+      console.error("Error selecting template:", error);
+    }
+  };
+
   return (
     <div className="w-full py-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -38,7 +55,8 @@ export const TemplateGallery = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 }}
-            className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-300"
+            className="group relative overflow-hidden rounded-xl bg-white shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer"
+            onClick={() => handleTemplateSelect(template)}
           >
             <div className="aspect-square relative overflow-hidden">
               <img

@@ -3,16 +3,27 @@ import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { triggerWebhook } from "@/utils/webhookService";
 
 export const PhotoUpload = () => {
   const [preview, setPreview] = useState<string | null>(null);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
+      reader.onloadend = async () => {
+        const imageData = reader.result as string;
+        setPreview(imageData);
+        
+        // Trigger webhook for image upload
+        await triggerWebhook("image_uploaded", {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          timestamp: new Date().toISOString()
+        });
+        
         toast.success("Photo uploaded successfully!");
       };
       reader.readAsDataURL(file);
