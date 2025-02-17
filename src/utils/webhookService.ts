@@ -21,8 +21,12 @@ export const triggerWebhook = async (event: string, data: any) => {
 
     if (!response.ok) {
       console.error("Webhook trigger failed:", await response.text());
+      throw new Error(`Webhook failed with status: ${response.status}`);
     }
+    
+    return response.json();
   } catch (error) {
     console.error("Error triggering webhook:", error);
+    throw error; // Re-throw to handle in components
   }
 };

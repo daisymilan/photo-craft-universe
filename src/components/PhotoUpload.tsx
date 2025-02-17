@@ -1,32 +1,41 @@
 
 import { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, Image as ImageIcon } from "lucide-react";
+import { Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { triggerWebhook } from "@/utils/webhookService";
 
 export const PhotoUpload = () => {
   const [preview, setPreview] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setPreview(imageData);
-        
-        // Trigger webhook for image upload
-        await triggerWebhook("image_uploaded", {
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-          timestamp: new Date().toISOString()
-        });
-        
-        toast.success("Photo uploaded successfully!");
-      };
-      reader.readAsDataURL(file);
+      setIsProcessing(true);
+      try {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const imageData = reader.result as string;
+          setPreview(imageData);
+          
+          // Trigger webhook for image upload
+          await triggerWebhook("image_uploaded", {
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            timestamp: new Date().toISOString()
+          });
+          
+          toast.success("Photo uploaded and processed successfully! Select a template to continue.");
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        toast.error("Failed to process image. Please try again.");
+        console.error("Error processing image:", error);
+      } finally {
+        setIsProcessing(false);
+      }
     }
   }, []);
 
@@ -50,16 +59,25 @@ export const PhotoUpload = () => {
           }
           border-2 border-dashed rounded-xl p-12 cursor-pointer
           flex flex-col items-center justify-center gap-4
-          animate-fade-in backdrop-blur-sm`}
+          animate-fade-in backdrop-blur-sm
+          ${isProcessing ? 'pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
-        {preview ? (
+        {isProcessing ? (
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+            <p className="text-sm text-gray-500">Processing your image...</p>
+          </div>
+        ) : preview ? (
           <div className="relative w-full max-w-md aspect-video">
             <img
               src={preview}
               alt="Preview"
               className="w-full h-full object-contain rounded-lg shadow-lg animate-fade-up"
             />
+            <p className="mt-4 text-sm text-gray-500 text-center">
+              Image uploaded! Choose a template below to continue.
+            </p>
           </div>
         ) : (
           <>
