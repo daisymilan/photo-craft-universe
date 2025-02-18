@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { triggerWebhook } from "@/utils/webhookService";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const templates = [
   {
@@ -31,17 +31,70 @@ const templates = [
   },
 ];
 
+// Mock function to simulate polling the server for the processed design
+const pollForDesign = async (templateId: number): Promise<string> => {
+  // In a real implementation, this would make an API call to check the status
+  // For demo purposes, we'll simulate a response after 2 seconds
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // For demonstration, we'll return a placeholder image
+      resolve("/placeholder.svg");
+    }, 2000);
+  });
+};
+
 export const TemplateGallery = () => {
   const [selectedTemplate, setSelectedTemplate] = useState<typeof templates[0] | null>(null);
   const [processedDesign, setProcessedDesign] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pollingId, setPollingId] = useState<NodeJS.Timeout | null>(null);
+
+  // Cleanup polling when component unmounts or when selection changes
+  useEffect(() => {
+    return () => {
+      if (pollingId) {
+        clearInterval(pollingId);
+      }
+    };
+  }, [pollingId]);
+
+  const startPolling = async (templateId: number) => {
+    let attempts = 0;
+    const maxAttempts = 10; // Maximum number of polling attempts
+
+    const pollInterval = setInterval(async () => {
+      try {
+        attempts++;
+        const design = await pollForDesign(templateId);
+        
+        if (design) {
+          setProcessedDesign(design);
+          setIsProcessing(false);
+          clearInterval(pollInterval);
+          toast.success("Your design is ready!");
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          setIsProcessing(false);
+          toast.error("Design processing timed out. Please try again.");
+        }
+      } catch (error) {
+        clearInterval(pollInterval);
+        setIsProcessing(false);
+        toast.error("Failed to retrieve processed design");
+      }
+    }, 2000); // Poll every 2 seconds
+
+    setPollingId(pollInterval);
+  };
 
   const handleTemplateSelect = async (template: typeof templates[0]) => {
     setIsProcessing(true);
     setSelectedTemplate(template);
+    setProcessedDesign(null);
     
     try {
-      // Send template selection to webhook
       await triggerWebhook("template_selected", {
         templateId: template.id,
         templateName: template.name,
@@ -49,21 +102,13 @@ export const TemplateGallery = () => {
         timestamp: new Date().toISOString()
       });
       
-      // Since we're using no-cors mode, we can't get the processed design directly from the response
-      // In a real implementation, you might want to:
-      // 1. Set up a WebSocket connection to receive the processed design
-      // 2. Poll an API endpoint to check for the processed design
-      // 3. Have the webhook service call back to your application
+      // Start polling for the processed design
+      startPolling(template.id);
       
-      // For now, we'll show a message explaining the situation
-      toast.success(
-        `Template "${template.name}" selected! In a production environment, the processed design would be displayed here. Currently, the webhook is triggered but we can't display the result due to CORS restrictions.`,
-        { duration: 5000 }
-      );
+      toast.success(`Processing template "${template.name}". Please wait...`);
     } catch (error) {
       toast.error("Failed to process template. Please try again.");
       console.error("Error selecting template:", error);
-    } finally {
       setIsProcessing(false);
     }
   };
